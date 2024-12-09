@@ -7,6 +7,69 @@ from typing import List, Any
 Code created by Edmund Sumpena and Jayden Ma
 """
 
+class AtlasModesDataloader():
+    """
+    Atlas modes dataloader class that, in addition to the functionality of
+    the base Dataloader, does the following:
+        - extracts the number of modes in the atlas
+        - extracts the number of vertices in the atlas
+        - extracts the coordinates of vertices for each mode in the atlas
+    """
+    def __init__(
+        self,
+        N_modes: int,
+        N_vertices: int,
+        modes: NDArray[np.float32]
+    ) -> None:
+           
+        # Store the number of modes and vertices
+        self.N_modes: int = N_modes
+        self.N_vertices: int = N_vertices
+
+        # Store the coordinates of vertices for each mode
+        self.modes: NDArray[np.float32] = modes
+
+    # Construct an AtlasModesDataloader class given a data file
+    @staticmethod
+    def read_file(filename: str) -> 'AtlasModesDataloader':
+        # Read the file line by line
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+
+        # Extract the number of vertices and modes from the first line
+        first_line = lines[0].strip().split()
+        N_vertices = int(first_line[1].split('=')[1])
+        N_modes = int(first_line[2].split('=')[1])
+
+        # Extract the coordinates of vertices for each mode
+        modes = []
+        for i in range(N_modes):
+            mode_data = []
+            for j in range(N_vertices):
+            # Skip the first line of each set of coordinates
+                line_index = i * (N_vertices + 1) + j + 2
+                mode_data.append([float(coord) for coord in lines[line_index].strip().replace(',', '').split()])
+            modes.append(np.array(mode_data, dtype=np.float32))
+        modes = np.array(modes, dtype=np.float32)
+
+        return AtlasModesDataloader(N_modes, N_vertices, modes)
+
+    # Reads the data file's metadata from dataframe
+    @staticmethod
+    def _read_metadata(df: pd.DataFrame) -> List[Any]:
+        return list(df.columns.values)
+
+    # Reads the data file's raw data from dataframe
+    @staticmethod
+    def _read_raw_data(df: pd.DataFrame) -> NDArray[np.float32]:
+        raw_data = []
+
+        # Extract all the coordinates from dataframe
+        for _, row in df.iterrows():
+            raw_data.append(row.values.flatten().tolist())
+
+        return np.array(raw_data)
+
 class Surfaceloader(): 
     """
     Surfaceloader class that performs the following functionalities:
