@@ -1,0 +1,8 @@
+To run the code, you need Anaconda installed on your machine. 
+Create the conda environment with all the necessary packages with 
+the following command:
+
+$ conda env create -f environment.yml
+
+Then, open main.ipynb (preferably in vscode) and select the 'pa4' 
+conda environment as your kernel.

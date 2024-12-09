@@ -1,0 +1,5 @@
+﻿Algorithm,Trial 1,Trial 2,Trial 3,Trial 4,Trial 5,Runtime,
+Simple linear,708.06,,,,,708.06,#DIV/0!
+Vectorized linear,13.67,14.35,13.46,13.28,13.05,13.562,0.496155218
+Octree,341.27,,,,,341.27,#DIV/0!
+Vectorized octree,31.64,32.02,31.99,33.47,31.92,32.208,0.721297442
