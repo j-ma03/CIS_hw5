@@ -11,7 +11,7 @@ class BoundingBox():
         self,
         min_xyz: NDArray[np.float32],
         max_xyz: NDArray[np.float32]
-    ):
+    ) -> None:
         """
         Stores a bounding box by its minimum and maximum (x, y, z) corners.
         """
@@ -83,9 +83,28 @@ class Triangle():
         v1: NDArray[np.float32],
         v2: NDArray[np.float32],
         v3: NDArray[np.float32],
-    ):
+        idx1: Union[float, None] = None,
+        idx2: Union[float, None] = None,
+        idx3: Union[float, None] = None,
+    ) -> None:
         """
         Stores a triangle as a set of vertices.
+        """
+        
+        # Set triangle vertices
+        self.set_vertices(v1, v2, v3, idx1, idx2, idx3)
+
+    def set_vertices(
+        self,
+        v1: NDArray[np.float32],
+        v2: NDArray[np.float32],
+        v3: NDArray[np.float32],
+        idx1: Union[float, None] = None,
+        idx2: Union[float, None] = None,
+        idx3: Union[float, None] = None,
+    ) -> None:
+        """
+        Sets the vertices of the triangle.
         """
 
         # Triangle vertices should be a 3D vector of (x, y, z) coordinates
@@ -102,6 +121,11 @@ class Triangle():
         self.v1 = v1
         self.v2 = v2
         self.v3 = v3
+
+        # Save indexes of triangle vertices
+        self.idx1 = idx1
+        self.idx2 = idx2
+        self.idx3 = idx3
 
     def center(self) -> NDArray[np.float32]:
         """
@@ -269,10 +293,11 @@ class Meshgrid():
         # Construct Triangles and add them to the list
         for i in range(self.triangle_indices.shape[0]):
             # Extract the vertices as (x, y, z) coordinates
+            idx1, idx2, idx3 = self.triangle_indices[i]
             v1, v2, v3 = self.vertices[self.triangle_indices[i]]
 
             self.triangles.append(
-                Triangle(v1, v2, v3)
+                Triangle(v1, v2, v3, idx1, idx2, idx3)
             )
 
     def __iter__(self) -> Iterator[Triangle]:
