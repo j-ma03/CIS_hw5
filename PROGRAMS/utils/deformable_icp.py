@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
-from typing import Tuple, Any, override
+from typing import Tuple, Any
 from enum import Enum
 from tqdm import tqdm
 from utils.coordinate_calibration import PointCloudRegistration
@@ -29,7 +29,6 @@ class DeformableICP(IterativeClosestPoint):
     ) -> None:
         super().__init__(max_iter, match_mode, gamma, early_stopping)
 
-    @override
     def __call__(
         self,
         pt_cloud: NDArray[np.float32],
@@ -133,17 +132,18 @@ class DeformableICP(IterativeClosestPoint):
         meshgrid: Meshgrid,
         modes: NDArray[np.float32]
     ) -> None:
-        λ = np.zeros(modes.shape[0])
+        λ = np.random.rand(modes.shape[0])
         λ[0] = 1.0
 
         closest_pt, dist, closest_tri = self.match(pt_cloud, meshgrid)
 
-        self._compute_barycentric_modes(
+        Q = self._compute_mode_coordinates(
             closest_pt, closest_tri, modes, λ
         )
-        pass
+        
+        return Q, λ
     
-    def _compute_barycentric_modes(
+    def _compute_mode_coordinates(
         self,
         closest_pt: NDArray[np.float32],
         closest_tri: NDArray[Any],
@@ -192,7 +192,8 @@ class DeformableICP(IterativeClosestPoint):
                           'Automatically setting λ[0] to 1.')
             λ[0] = 1.0
 
-        # deformed_mesh = np.zeros(())
+        # Create an NxMx3 matrix of mode coordinates
+        Q = np.zeros((closest_pt.shape[0], modes.shape[0], 3))
 
         for i in range(len(closest_tri)):
             triangle: Triangle = closest_tri[i]
@@ -206,15 +207,14 @@ class DeformableICP(IterativeClosestPoint):
             mode_coords = modes[:,[s,t,u]] * λ.reshape(-1, 1, 1)
             mode_coords = np.sum(mode_coords, axis=0).T
 
-            print(mode_coords)
+            # Find barycentric coordinates by solving a least squares problem
+            barycentric = np.linalg.lstsq(mode_coords, closest_pt[i], rcond=None)[0]
+            barycentric = barycentric.reshape(1, 3, 1)
 
-            barycentric = np.linalg.lstsq(mode_coords, closest_pt[i])
+            # Mode coordinates as a NxMx3
+            Q[i] = np.sum(modes[:,[s,t,u]] * barycentric, axis=1)
 
-            print(barycentric)
-
-            break
-
-        return
+        return Q
 
     def match(
         self,
@@ -254,7 +254,6 @@ class DeformableICP(IterativeClosestPoint):
         elif self.match_mode == Matching.VECTORIZED_OCTREE:
             return self._vectorized_octree_match(pt_cloud, meshgrid)
 
-    @override
     def _simple_linear_match(
         self,
         pt_cloud: NDArray[np.float32],
@@ -299,7 +298,6 @@ class DeformableICP(IterativeClosestPoint):
 
         return closest_pt, min_dist
     
-    @override
     def _vectorized_linear_match(
         self,
         pt_cloud: NDArray[np.float32],
@@ -358,7 +356,6 @@ class DeformableICP(IterativeClosestPoint):
 
         return closest_pt, min_dist, closest_tri
     
-    @override
     def _simple_octree_match(
         self,
         pt_cloud: NDArray[np.float32],
@@ -395,7 +392,6 @@ class DeformableICP(IterativeClosestPoint):
 
         return closest_pt, min_dist
     
-    @override
     def _simple_search_octree(
         self,
         point: NDArray[np.float32],
@@ -448,7 +444,6 @@ class DeformableICP(IterativeClosestPoint):
 
         return closest_pt, min_dist
     
-    @override
     def _vectorized_octree_match(
         self,
         pt_cloud: NDArray[np.float32],
