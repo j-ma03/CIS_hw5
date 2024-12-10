@@ -141,7 +141,7 @@ class DeformableICP(IterativeClosestPoint):
             closest_pt, closest_tri, modes, λ
         )
 
-        F_reg = np.eye(3)
+        F_reg = np.eye(4)
         homog_cloud = self._homogenize(pt_cloud[:,:3])
         S = (F_reg @ homog_cloud.T)[:3].T
 
