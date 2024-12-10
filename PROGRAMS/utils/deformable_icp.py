@@ -140,6 +140,17 @@ class DeformableICP(IterativeClosestPoint):
         Q = self._compute_mode_coordinates(
             closest_pt, closest_tri, modes, λ
         )
+
+        F_reg = np.eye(3)
+        homog_cloud = self._homogenize(pt_cloud[:,:3])
+        S = (F_reg @ homog_cloud.T)[:3].T
+
+        for i in range(pt_cloud.shape[0]):
+            # TODO Construct least squares matrix
+            np.zeros()
+            self.skew_symmetric(S[i])
+
+        np.linalg.lstsq()
         
         return Q, λ
     
@@ -567,6 +578,41 @@ class DeformableICP(IterativeClosestPoint):
         else:
             # Point cloud is 
             return pt_cloud
+        
+
+    def skew_symmetric(self, vec: NDArray[np.float32]) -> NDArray[np.float32]:
+        """
+        Creates a skew-symmetric matrix of a 3D vector.
+        """
+        return np.array([
+            [0, -vec[2], vec[1]],
+            [vec[2], 0, -vec[0]],
+            [-vec[1], vec[0], 0]
+        ])
+    
+    def rotation_matrix(self, vec: NDArray[np.float32]) -> NDArray[np.float32]:
+        """
+        Creates a rotation matrix from a 3D vector of angles.
+        """
+        Rx = np.array([
+            [1, 0, 0],
+            [0, np.cos(vec[0]), -np.sin(vec[0])],
+            [0, np.sin(vec[0]), np.cos(vec[0])]
+        ])
+
+        Ry = np.array([
+            [np.cos(vec[1]), 0, np.sin(vec[1])],
+            [0, 1, 0],
+            [-np.sin(vec[1]), 0, np.cos(vec[1])]
+        ])
+
+        Rz = np.array([
+            [np.cos(vec[2]), -np.sin(vec[2]), 0],
+            [np.sin(vec[2]), np.cos(vec[2]), 0],
+            [0, 0, 1]
+        ])
+
+        return Rx @ Ry @ Rz
 
         
     
