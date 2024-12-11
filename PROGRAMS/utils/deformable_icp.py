@@ -145,25 +145,31 @@ class DeformableICP(IterativeClosestPoint):
         homog_cloud = self._homogenize(pt_cloud[:,:3])
         S = (F_reg @ homog_cloud.T)[:3].T
 
-        A = np.zeros((3, 6 + modes.shape[0]))
-        b = np.zeros(3)
+        n = pt_cloud.shape[0]
 
-        for i in range(pt_cloud.shape[0]): # populate A and b
+        A = np.zeros((3 * n, 6 + modes.shape[0]))
+        b = (S - closest_pt).flatten()    # b_k = s_k - c_k
+
+        for i in range(n): # populate A and b
             # TODO Construct least squares matrix
             skew_s_k = self.skew_symmetric(S[i]) # skew(s_k)
             # get q_k for each mode
             identity = np.eye(3)
-            A[:, :3] = skew_s_k
-            A[:, 3:6] = identity
-            A[:, 6:] = Q[i].reshape(3, -1)
+            A[3*i:3*i+3, :3] = skew_s_k
+            A[3*i:3*i+3, 3:6] = identity
+            A[3*i:3*i+3, 6:] = Q[i].reshape(3, -1)
 
-            b = S[i] - pt_cloud[i] # b_k = s_k - c_k
+        print(A.shape)
+        print(b.shape)
 
         # TODO Solve least squares problem A * x = b
-        ɑ, ε, λ = np.linalg.lstsq( A, b, rcond=None)
+        # ɑ, ε, λ
+        x = np.linalg.lstsq(A, b, rcond=None)[0]
+
+        print(x.shape)
         
-        # return ⍺, ε, λ
-        return ɑ, ε, λ
+        # return ⍺, ε, λ_new
+        return Q, λ, x[:3], x[3:6], x[6:]
     
     def _compute_mode_coordinates(
         self,
