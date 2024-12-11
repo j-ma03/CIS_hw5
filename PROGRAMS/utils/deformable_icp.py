@@ -154,9 +154,8 @@ class DeformableICP(IterativeClosestPoint):
             # TODO Construct least squares matrix
             skew_s_k = self.skew_symmetric(S[i]) # skew(s_k)
             # get q_k for each mode
-            identity = np.eye(3)
             A[3*i:3*i+3, :3] = skew_s_k
-            A[3*i:3*i+3, 3:6] = identity
+            A[3*i:3*i+3, 3:6] = -np.eye(3)
             A[3*i:3*i+3, 6:] = Q[i].reshape(3, -1)
 
         print(A.shape)
