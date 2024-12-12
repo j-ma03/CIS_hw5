@@ -117,7 +117,12 @@ class DeformableICP(IterativeClosestPoint):
 
             # Compute updated rigid transformation (rotation ɑ & translation ε)
             # and mode weights λ
-            alpha, eps, λ_new = self._get_deformable_transf(
+            # alpha, eps, λ_new = self._get_deformable_transf(
+            #     pt_cloud_i[candidates], closest_pt[candidates],
+            #     modes, mode_coords
+            # )
+
+            λ_new = self._get_deformable_transf(
                 pt_cloud_i[candidates], closest_pt[candidates],
                 modes, mode_coords
             )
@@ -128,8 +133,8 @@ class DeformableICP(IterativeClosestPoint):
 
             # Compute new transformation matrix from alpha and epsilon
             F_i = np.eye(4)
-            F_i[:3,:3] = self._rotation_matrix(alpha)
-            F_i[:3,3] = eps
+            # F_i[:3,:3] = self._rotation_matrix(alpha)
+            # F_i[:3,3] = eps
 
             # Update point cloud with transformation
             pt_cloud_i = self._homogenize(pt_cloud_i)
@@ -337,6 +342,68 @@ class DeformableICP(IterativeClosestPoint):
         
         # Return alpha, epsilon, and lambdas
         return x[:3], x[3:6], x[6:]
+    
+
+    def _get_deformable_transf(
+        self,
+        transf_pt_cloud: NDArray[np.float32], # transformed point cloud s_k
+        closest_pt: NDArray[np.float32], # closest point on mesh c_k
+        modes: NDArray[np.float32], # modes q_m,k
+        mode_coords: NDArray[np.float32] # mode coordinates q_m,k
+    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+        """
+        Computes the rigid body transformation for a point cloud
+        and the mode weights λ given a meshgrid and modes.
+        """
+        # Point cloud should be an Nx3 matrix of (x, y, z) coordinates
+        if len(transf_pt_cloud.shape) != 2 or transf_pt_cloud.shape[1] != 3:
+            raise ValueError('Point cloud should be an Nx3 matrix containing 3D coordinates!')
+        
+        # Check that the matrix of modes is a MxVx3 matrix
+        if len(modes.shape) != 3 or modes.shape[2] != 3:
+            raise ValueError('Matrix of modes should be an MxVx3 matrix!')
+
+        # number of points in the point cloud
+        n = transf_pt_cloud.shape[0]
+
+        # Initialize A and b matrices
+        A = np.zeros((3 * n, modes.shape[0] - 1))
+        # b = (transf_pt_cloud - closest_pt).flatten()    # b_k = s_k - c_k
+
+        b = (transf_pt_cloud - mode_coords[:,0]).flatten()
+        # print(b)
+        # print(b.flatten())
+        # print(b.shape)
+        # assert False
+
+        # print(n)
+        # print(mode_coords.shape)
+        # assert False
+
+        for i in range(n): # populate A and b
+            # each 3xn row in A = [skew(s_k) -I q_1,k ... q_m,k], repeat for each point in the point cloud
+            A[3*i:3*i+3] = mode_coords[i,1:].T
+
+            # print(self._skew_symmetric(transf_pt_cloud[i]).shape)
+            # print(mode_coords[i,1:].T.shape)
+            # assert False
+
+        # print(A)
+
+        # print(A)
+        # assert False
+
+        # Solve least squares problem A * x = b
+        x = np.linalg.lstsq(A, b, rcond=None)[0]
+
+        # print(x)
+
+        # print(x)
+        # assert False
+        
+        # Return alpha, epsilon, and lambdas
+        return x
+    
     
     def _deform_mesh(
         self,
