@@ -52,23 +52,42 @@ class DeformableICP(IterativeClosestPoint):
         if len(modes.shape) != 3 or modes.shape[2] != 3:
             raise ValueError('Matrix of modes should be an MxVx3 matrix!')
         
-        ####
-        ## Step 1: Perform rigid-body ICP until convergence
-        ####
+        # Initialize the best rigidly-transformed point cloud
+        # and its transformation matrix
+        pt_cloud_best = pt_cloud[:,:3].copy()
+        pt_cloud = self._homogenize(pt_cloud)
+        F_best = np.eye(3)
+        
+        # Initialize λ vector as a zero vector (just look at mean initially)
+        λ_best = np.zeros(modes.shape[0])
+        λ_best[0] = 1.0
+        
+        for i in range(5):
+            ####
+            ## Step 1: Perform rigid-body ICP until convergence
+            ####
 
-        print('\nPerforming rigid-body ICP...')
+            print(f'Iteration {i+1}:')
+            print('\nPerforming rigid-body ICP...')
 
-        best_pt_cloud, closest_pt, dist, F_best = super().__call__(
-            pt_cloud, meshgrid
-        )
+            best_pt_cloud, closest_pt, dist, F = super().__call__(
+                pt_cloud_best, meshgrid
+            )
+            F_best = F_best @ F
 
-        print('Done.\n')
+            print('Done.\n')
 
 
-        # TODO put step 2 into a function and return deformed mesh, λ_best
-        ####
-        ## Step 2: Refine transformation with Deformable ICP until convergence
-        ####
+            # TODO put step 2 into a function and return deformed mesh, λ_best
+            ####
+            ## Step 2: Refine transformation with Deformable ICP until convergence
+            ####
+
+            print('\nPerforming deformable ICP...')
+
+            meshgrid, λ_best = self.deform_mesh(best_pt_cloud, modes, λ_best)
+
+            print('Done.\n')
 
         # # List storing point cloud and meshgrid closest point
         # # matching error
@@ -178,18 +197,19 @@ class DeformableICP(IterativeClosestPoint):
 
         # print('Done.\n')
 
-        meshgrid, λ_best = self.get_new_deformed_mesh(best_pt_cloud, modes)
+        # meshgrid, λ_best = self.get_new_deformed_mesh(best_pt_cloud, modes)
 
         # Compute best point cloud and closest distance to mesh
-        best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
-        closest_pt, dist, _ = self.match(best_pt_cloud[:,:3], meshgrid)
+        # best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
+        # closest_pt, dist, _ = self.match(best_pt_cloud[:,:3], meshgrid)
 
-        return best_pt_cloud, closest_pt, dist, F_best, λ_best
+        # return best_pt_cloud, closest_pt, dist, F_best, λ_best
 
-    def get_new_deformed_mesh(
+    def deform_mesh(
         self,
         best_pt_cloud: NDArray[np.float32],
         modes: NDArray[np.float32],
+        λ: NDArray[np.float32]
     ) -> Tuple[Meshgrid, NDArray[np.float32]]:
         """
         Returns the new deformed meshgrid and mode weights λ.
@@ -202,21 +222,18 @@ class DeformableICP(IterativeClosestPoint):
         # and meshgrid closest point to be considered a candidate
         dist_thresh = np.inf
 
-        # Initialize λ vector as a zero vector (just look at mean initially)
-        λ = np.ones(modes.shape[0])
-        λ[0] = 1.0
-        λ_best = λ.copy()
-
         # Stores the current and best transformation from
         # the point cloud to meshgrid
         F: NDArray = F_best.copy()
         early_stop_count = 0    # Number of times failed termination condition
 
+        # Store the best λ (mode weights)
+        λ_best = λ.copy()
+
         # Stores the best point cloud computed at each iteration
         pt_cloud_i = best_pt_cloud[:,:3].copy()
         pt_cloud = self._homogenize(pt_cloud)
 
-        print('\nPerforming deformable ICP...')
         for _ in (pbar := tqdm(range(self.max_iter), bar_format="{n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
             # Find closest points and distances
             closest_pt, dist, closest_tri = self.match(pt_cloud_i, meshgrid)
@@ -240,13 +257,6 @@ class DeformableICP(IterativeClosestPoint):
                 warnings.warn('Sanity check failed: Predicted mode coordinates '\
                               f'do not match the transformed points (error: {err})!')
 
-            # Compute updated rigid transformation (rotation ɑ & translation ε)
-            # and mode weights λ
-            # alpha, eps, λ_new = self._get_deformable_transf(
-            #     pt_cloud_i[candidates], closest_pt[candidates],
-            #     modes, mode_coords
-            # )
-
             λ_new = self._get_deformable_transf(
                 pt_cloud_i[candidates], closest_pt[candidates],
                 modes, mode_coords
@@ -255,16 +265,6 @@ class DeformableICP(IterativeClosestPoint):
             # Update mode weights λ for modes 1 - M
             λ[1:] = λ_new
             assert λ[0] == 1, f'Expected λ for the 0th mode to be 1, but got {λ[0]}!'
-
-            # Compute new transformation matrix from alpha and epsilon
-            F_i = np.eye(4)
-            # F_i[:3,:3] = self._rotation_matrix(alpha)
-            # F_i[:3,3] = eps
-
-            # Update point cloud with transformation
-            pt_cloud_i = self._homogenize(pt_cloud_i)
-            pt_cloud_i = (F_i @ pt_cloud_i.T)[:3].T
-            F = F @ F_i
 
             # Apply deformation on the triangle mesh vertices
             meshgrid = self._deform_mesh(meshgrid, modes, λ)
@@ -299,8 +299,6 @@ class DeformableICP(IterativeClosestPoint):
             # too many times
             if early_stop_count >= self.early_stopping:
                 break
-
-        print('Done.\n')
 
         return meshgrid, λ_best
 
