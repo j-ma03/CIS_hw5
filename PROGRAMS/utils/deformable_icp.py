@@ -309,15 +309,16 @@ class DeformableICP(IterativeClosestPoint):
         if len(modes.shape) != 3 or modes.shape[2] != 3:
             raise ValueError('Matrix of modes should be an MxVx3 matrix!')
 
+        # number of points in the point cloud
         n = transf_pt_cloud.shape[0]
 
+        # Initialize A and b matrices
         A = np.zeros((3 * n, 6 + modes.shape[0]))
         b = (transf_pt_cloud - closest_pt).flatten()    # b_k = s_k - c_k
 
         for i in range(n): # populate A and b
-            # TODO Construct least squares matrix
             skew_s_k = self.skew_symmetric(transf_pt_cloud[i]) # skew(s_k)
-            # get q_k for each mode
+            # each 3xn row in A = [skew(s_k) -I q_1,k ... q_m,k], repeat for each point in the point cloud
             A[3*i:3*i+3, :3] = skew_s_k
             A[3*i:3*i+3, 3:6] = -np.eye(3)
             A[3*i:3*i+3, 6:] = mode_coords[i].reshape(3, -1)
@@ -325,9 +326,9 @@ class DeformableICP(IterativeClosestPoint):
         # Solve least squares problem A * x = b
         x = np.linalg.lstsq(A, b, rcond=None)[0]
 
+        # Extract ɑ, ε, λ_new from x
         ɑ, ε, λ_new = x[:3], x[3:6], x[6:]
         
-        # return ⍺, ε, λ_new
         return ɑ, ε, λ_new
 
     def match(
