@@ -43,7 +43,7 @@ class AtlasModesDataloader():
 
         # Extract the coordinates of vertices for each mode
         modes = []
-        for i in range(N_modes):
+        for i in range(N_modes+1):
             mode_data = []
             for j in range(N_vertices):
             # Skip the first line of each set of coordinates
