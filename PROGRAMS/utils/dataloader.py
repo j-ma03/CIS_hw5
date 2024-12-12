@@ -39,7 +39,7 @@ class AtlasModesDataloader():
         # Extract the number of vertices and modes from the first line
         first_line = lines[0].strip().split()
         N_vertices = int(first_line[1].split('=')[1])
-        N_modes = int(first_line[2].split('=')[1])
+        N_modes = int(first_line[2].split('=')[1]) + 1
 
         # Extract the coordinates of vertices for each mode
         modes = []
