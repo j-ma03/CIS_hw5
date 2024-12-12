@@ -123,9 +123,14 @@ class Triangle():
         self.v3 = v3
 
         # Save indexes of triangle vertices
-        self.idx1 = idx1
-        self.idx2 = idx2
-        self.idx3 = idx3
+        if idx1 is not None:
+            self.idx1 = idx1
+        
+        if idx2 is not None:
+            self.idx2 = idx2
+
+        if idx3 is not None:
+            self.idx3 = idx3
 
     def center(self) -> NDArray[np.float32]:
         """
