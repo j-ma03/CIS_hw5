@@ -43,7 +43,7 @@ class AtlasModesDataloader():
 
         # Extract the coordinates of vertices for each mode
         modes = []
-        for i in range(N_modes+1):
+        for i in range(N_modes):
             mode_data = []
             for j in range(N_vertices):
             # Skip the first line of each set of coordinates
@@ -51,6 +51,10 @@ class AtlasModesDataloader():
                 mode_data.append([float(coord) for coord in lines[line_index].strip().replace(',', '').split()])
             modes.append(np.array(mode_data, dtype=np.float32))
         modes = np.array(modes, dtype=np.float32)
+
+        # Print the first and last element of modes
+        print("First element of modes:", modes[0])
+        print("Last element of modes:", modes[-1])
 
         return AtlasModesDataloader(N_modes, N_vertices, modes)
 

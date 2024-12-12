@@ -178,7 +178,7 @@ class DeformableICP(IterativeClosestPoint):
 
         # print('Done.\n')
 
-        meshgrid, λ_best = self.get_new_deformed_mesh(best_pt_cloud, modes)
+        meshgrid, λ_best = self.get_new_deformed_mesh(best_pt_cloud, modes, F_best, pt_cloud, meshgrid)
 
         # Compute best point cloud and closest distance to mesh
         best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
@@ -190,6 +190,9 @@ class DeformableICP(IterativeClosestPoint):
         self,
         best_pt_cloud: NDArray[np.float32],
         modes: NDArray[np.float32],
+        F_best: NDArray[np.float32],
+        pt_cloud: NDArray[np.float32],
+        meshgrid: Meshgrid
     ) -> Tuple[Meshgrid, NDArray[np.float32]]:
         """
         Returns the new deformed meshgrid and mode weights λ.
