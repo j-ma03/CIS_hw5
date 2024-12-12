@@ -151,7 +151,7 @@ class DeformableICP(IterativeClosestPoint):
             raise ValueError('Matrix of modes should be an MxVx3 matrix!')
         
         print('\nPerforming rigid-body ICP...')
-        best_pt_cloud, closest_pt, dist, F_best, closest_tri = super()(
+        best_pt_cloud, closest_pt, dist, closest_tri, F_best = super().__call__(
             pt_cloud, meshgrid
         )
         print('Done.\n')
@@ -159,6 +159,8 @@ class DeformableICP(IterativeClosestPoint):
         # Initialize λ vector as a zero vector (just look at mean initially)
         λ = np.zeros(modes.shape[0])
         λ[0] = 1.0
+
+        print(closest_tri.shape)
 
         print('\nPerforming deformable ICP...')
         for _ in (pbar := tqdm(range(self.max_iter), bar_format="{n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
@@ -188,30 +190,32 @@ class DeformableICP(IterativeClosestPoint):
         homog_cloud = self._homogenize(pt_cloud[:,:3])
         S = (F_reg @ homog_cloud.T)[:3].T
 
-        n = pt_cloud.shape[0]
+        # n = pt_cloud.shape[0]
 
-        A = np.zeros((3 * n, 6 + modes.shape[0]))
-        b = (S - closest_pt).flatten()    # b_k = s_k - c_k
+        # A = np.zeros((3 * n, 6 + modes.shape[0]))
+        # b = (S - closest_pt).flatten()    # b_k = s_k - c_k
 
-        for i in range(n): # populate A and b
-            # TODO Construct least squares matrix
-            skew_s_k = self.skew_symmetric(S[i]) # skew(s_k)
-            # get q_k for each mode
-            A[3*i:3*i+3, :3] = skew_s_k
-            A[3*i:3*i+3, 3:6] = -np.eye(3)
-            A[3*i:3*i+3, 6:] = Q[i].reshape(3, -1)
+        # for i in range(n): # populate A and b
+        #     # TODO Construct least squares matrix
+        #     skew_s_k = self.skew_symmetric(S[i]) # skew(s_k)
+        #     # get q_k for each mode
+        #     A[3*i:3*i+3, :3] = skew_s_k
+        #     A[3*i:3*i+3, 3:6] = -np.eye(3)
+        #     A[3*i:3*i+3, 6:] = Q[i].reshape(3, -1)
 
-        print(A.shape)
-        print(b.shape)
+        # print(A.shape)
+        # print(b.shape)
 
-        # TODO Solve least squares problem A * x = b
-        # ɑ, ε, λ
-        x = np.linalg.lstsq(A, b, rcond=None)[0]
+        # # TODO Solve least squares problem A * x = b
+        # # ɑ, ε, λ
+        # x = np.linalg.lstsq(A, b, rcond=None)[0]
 
-        print(x.shape)
+        # print(x.shape)
+
+        ɑ, ε, λ_new = self._get_deformable_transf(S, closest_pt, modes, Q)
         
         # return ⍺, ε, λ_new
-        return Q, λ, x[:3], x[3:6], x[6:]
+        return λ, Q, ɑ, ε, λ_new
     
     def _compute_mode_coordinates(
         self,
@@ -284,6 +288,47 @@ class DeformableICP(IterativeClosestPoint):
             Q[i] = np.sum(modes[:,[s,t,u]] * barycentric, axis=1)
 
         return Q
+    
+    def _get_deformable_transf(
+        self,
+        transf_pt_cloud: NDArray[np.float32], # transformed point cloud s_k
+        closest_pt: NDArray[np.float32], # closest point on mesh c_k
+        modes: NDArray[np.float32], # modes q_m,k
+        mode_coords: NDArray[np.float32] # mode coordinates q_m,k
+    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+        """
+        Computes the transformation mode weights for a point cloud
+        given a meshgrid and modes.
+        """
+
+        # Point cloud should be an Nx3 matrix of (x, y, z) coordinates
+        if len(transf_pt_cloud.shape) != 2 or transf_pt_cloud.shape[1] != 3:
+            raise ValueError('Point cloud should be an Nx3 matrix containing 3D coordinates!')
+        
+        # Check that the matrix of modes is a MxVx3 matrix
+        if len(modes.shape) != 3 or modes.shape[2] != 3:
+            raise ValueError('Matrix of modes should be an MxVx3 matrix!')
+
+        n = transf_pt_cloud.shape[0]
+
+        A = np.zeros((3 * n, 6 + modes.shape[0]))
+        b = (transf_pt_cloud - closest_pt).flatten()    # b_k = s_k - c_k
+
+        for i in range(n): # populate A and b
+            # TODO Construct least squares matrix
+            skew_s_k = self.skew_symmetric(transf_pt_cloud[i]) # skew(s_k)
+            # get q_k for each mode
+            A[3*i:3*i+3, :3] = skew_s_k
+            A[3*i:3*i+3, 3:6] = -np.eye(3)
+            A[3*i:3*i+3, 6:] = mode_coords[i].reshape(3, -1)
+
+        # Solve least squares problem A * x = b
+        x = np.linalg.lstsq(A, b, rcond=None)[0]
+
+        ɑ, ε, λ_new = x[:3], x[3:6], x[6:]
+        
+        # return ⍺, ε, λ_new
+        return ɑ, ε, λ_new
 
     def match(
         self,
