@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.typing import NDArray
-from typing import Tuple
+from typing import Tuple, Any
 from enum import Enum
 from tqdm import tqdm
 from utils.coordinate_calibration import PointCloudRegistration
@@ -76,7 +76,7 @@ class IterativeClosestPoint():
 
         for _ in (pbar := tqdm(range(self.max_iter), bar_format="{n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
             # Find closest points and distances
-            closest_pt, dist = self.match(pt_cloud_i, meshgrid)
+            closest_pt, dist, _ = self.match(pt_cloud_i, meshgrid)
 
             # Find candidates where distance to closest point is
             # less than the maximum threshold
@@ -129,9 +129,9 @@ class IterativeClosestPoint():
 
         # Compute best point cloud and closest distance to mesh
         best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
-        closest_pt, dist = self.match(best_pt_cloud[:,:3], meshgrid)
+        closest_pt, dist, closest_tri = self.match(best_pt_cloud[:,:3], meshgrid)
 
-        return best_pt_cloud, closest_pt, dist, F_best         
+        return best_pt_cloud, closest_pt, dist, closest_tri, F_best
 
     def match(
         self,
@@ -189,6 +189,10 @@ class IterativeClosestPoint():
         # Populate a matrix of closest points on the meshgrid
         closest_pt = np.zeros_like(pt_cloud)
 
+        # Populate a list of triangles for each point
+        closest_tri = np.empty(pt_cloud.shape[0], dtype=object)
+        closest_tri.fill(None)
+
         # Iterate through all the points and triangles in the meshgrid
         for i, point in enumerate(pt_cloud):
             for triangle in meshgrid:
@@ -210,8 +214,9 @@ class IterativeClosestPoint():
                         # Update the closest point and minimum distance
                         closest_pt[i] = pt[0]
                         min_dist[i] = dist[0]
+                        closest_tri[i] = triangle
 
-        return closest_pt, min_dist
+        return closest_pt, min_dist, closest_tri
     
     def _vectorized_linear_match(
         self,
@@ -225,12 +230,16 @@ class IterativeClosestPoint():
         at once for each Triangle.
         """
 
-        # Populate a matrix of closest distances to the meshgrid
+        # Populate a list of closest distances to the meshgrid
         min_dist = np.empty(pt_cloud.shape[0])
         min_dist.fill(np.inf)
 
         # Populate a matrix of closest points on the meshgrid
         closest_pt = np.zeros_like(pt_cloud)
+
+        # Populate a list of triangles for each point
+        closest_tri = np.empty(pt_cloud.shape[0], dtype=object)
+        closest_tri.fill(None)
 
         # Iterate through all the triangles in the meshgrid
         for triangle in meshgrid:
@@ -263,8 +272,9 @@ class IterativeClosestPoint():
                 # Update the closest point and minimum distance
                 min_dist[closer_indices] = dist[closer_mask]
                 closest_pt[closer_indices] = pt[closer_mask]
+                closest_tri[closer_indices] = triangle
 
-        return closest_pt, min_dist
+        return closest_pt, min_dist, closest_tri
     
     def _simple_octree_match(
         self,
@@ -285,6 +295,10 @@ class IterativeClosestPoint():
         min_dist = np.empty(pt_cloud.shape[0])
         min_dist.fill(np.inf)
 
+        # Populate a list of triangles for each point
+        closest_tri = np.empty(pt_cloud.shape[0], dtype=object)
+        closest_tri.fill(None)
+
         # Create a new tree containing triangles from the meshgrid
         tree = Octree(meshgrid.triangles)
 
@@ -294,8 +308,8 @@ class IterativeClosestPoint():
         
         # Search Octree for every point
         for i, pt in enumerate(pt_cloud):
-            closest_pt[i], min_dist[i] = self._simple_search_octree(
-                pt, tree, closest_pt[i], min_dist[i]
+            closest_pt[i], min_dist[i], closest_tri[i] = self._simple_search_octree(
+                pt, tree, closest_pt[i], min_dist[i], closest_tri[i]
             )
 
         return closest_pt, min_dist
@@ -305,7 +319,8 @@ class IterativeClosestPoint():
         point: NDArray[np.float32],
         tree: Octree,
         closest_pt: NDArray[np.float32],
-        min_dist: float
+        min_dist: float,
+        closest_tri: NDArray[Any]
     ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
         """
         Helper function that recursively searches an Octree to
@@ -327,7 +342,7 @@ class IterativeClosestPoint():
 
         # Stop if there are no candidates to consider
         if not box.contains(point[None,]):
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
         
         # Iterate through all elements of the subtree if node is a child
         if not tree.have_subtrees:
@@ -339,16 +354,17 @@ class IterativeClosestPoint():
                     # Update the closest point and minimum distance
                     closest_pt = pt[0]
                     min_dist = dist[0]
+                    closest_tri = triangle
 
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
 
         # Recursively process all subtrees
         for subtree in tree:
-            closest_pt, min_dist = self._simple_search_octree(
-                point, subtree, closest_pt, min_dist
+            closest_pt, min_dist, closest_tri = self._simple_search_octree(
+                point, subtree, closest_pt, min_dist, closest_tri
             )
 
-        return closest_pt, min_dist
+        return closest_pt, min_dist, closest_tri
     
     def _vectorized_octree_match(
         self,
@@ -356,7 +372,8 @@ class IterativeClosestPoint():
         meshgrid: Meshgrid,
         tree: Octree = None,
         closest_pt: NDArray[np.float32] = None,
-        min_dist: NDArray[np.float32] = None
+        min_dist: NDArray[np.float32] = None, 
+        closest_tri: NDArray[Any] = None
     ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
         """
         Implementation of a vectorized Octree search to find the
@@ -374,13 +391,18 @@ class IterativeClosestPoint():
             min_dist = np.empty(pt_cloud.shape[0])
             min_dist.fill(np.inf)
 
+        # Populate a list of triangles for each point (if necessary)
+        if closest_tri is None:
+            closest_tri = np.empty(pt_cloud.shape[0], dtype=object)
+            closest_tri.fill(None)
+
         # Create a new tree containing triangles from the meshgrid (if necessary)
         if tree is None:
             tree = Octree(meshgrid.triangles)
 
         # Check if tree is empty
         if tree.num_elements == 0:
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
         
         # Get the bounding box of the tree
         box = tree.box()
@@ -419,16 +441,17 @@ class IterativeClosestPoint():
                 # Update the closest point and minimum distance
                 closest_pt[closer_indices] = pt[closer_mask]
                 min_dist[closer_indices] = dist[closer_mask]
+                closest_tri[closer_indices] = triangle
 
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
         
         # Recursively process all subtrees
         for subtree in tree:
-            closest_pt, min_dist = self._vectorized_octree_match(
-                pt_cloud, meshgrid, subtree, closest_pt, min_dist
+            closest_pt, min_dist, closest_tri = self._vectorized_octree_match(
+                pt_cloud, meshgrid, subtree, closest_pt, min_dist, closest_tri
             )
 
-        return closest_pt, min_dist
+        return closest_pt, min_dist, closest_tri
     
     def _residual_error(
         self, 
