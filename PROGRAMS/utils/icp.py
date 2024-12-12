@@ -129,9 +129,9 @@ class IterativeClosestPoint():
 
         # Compute best point cloud and closest distance to mesh
         best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
-        closest_pt, dist, closest_tri = self.match(best_pt_cloud[:,:3], meshgrid)
+        closest_pt, dist, _ = self.match(best_pt_cloud[:,:3], meshgrid)
 
-        return best_pt_cloud, closest_pt, dist, closest_tri, F_best
+        return best_pt_cloud, closest_pt, dist, F_best
 
     def match(
         self,
