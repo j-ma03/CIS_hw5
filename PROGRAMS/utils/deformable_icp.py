@@ -80,6 +80,7 @@ class DeformableICP(IterativeClosestPoint):
         # Initialize λ vector as a zero vector (just look at mean initially)
         λ = np.zeros(modes.shape[0])
         λ[0] = 1.0
+        λ_best = λ.copy()
 
         # Stores the current and best transformation from
         # the point cloud to meshgrid
@@ -152,6 +153,7 @@ class DeformableICP(IterativeClosestPoint):
                 early_stop_count += 1   # Increment counter
             else:
                 F_best = F.copy()   # New best transformation found
+                λ_best = λ.copy()
                 early_stop_count = 0    # Reset counter
 
             # Stop algorithm if failed termination condition
@@ -160,6 +162,12 @@ class DeformableICP(IterativeClosestPoint):
                 break
 
         print('Done.')
+
+        # Compute best point cloud and closest distance to mesh
+        best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
+        closest_pt, dist, _ = self.match(best_pt_cloud[:,:3], meshgrid)
+
+        return best_pt_cloud, closest_pt, dist, F_best, λ_best
 
     def match(
         self,
