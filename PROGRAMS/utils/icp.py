@@ -75,6 +75,7 @@ class IterativeClosestPoint():
         pt_cloud = self._homogenize(pt_cloud)
 
         for _ in (pbar := tqdm(range(self.max_iter), bar_format="{n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
+            
             # Find closest points and distances
             closest_pt, dist, _ = self.match(pt_cloud_i, meshgrid)
 
@@ -137,7 +138,7 @@ class IterativeClosestPoint():
         self,
         pt_cloud: NDArray[np.float32],
         meshgrid: Meshgrid
-    ):
+    ) -> Tuple[NDArray[np.float32], ...]:
         """
         Finds the closest point and distance from points on a point cloud 
         to a triangle meshgrid.
@@ -175,7 +176,7 @@ class IterativeClosestPoint():
         self,
         pt_cloud: NDArray[np.float32],
         meshgrid: Meshgrid
-    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    ) -> Tuple[NDArray[np.float32], ...]:
         """
         Implementation of a simple linear search for the closest point 
         containing loops over all data points and Triangles. Finds the 
@@ -222,7 +223,7 @@ class IterativeClosestPoint():
         self,
         pt_cloud: NDArray[np.float32],
         meshgrid: Meshgrid
-    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    ) -> Tuple[NDArray[np.float32], ...]:
         """
         Implementation of a fast vectorized linear search for the closest point
         containing a only single loop over all Triangles in the meshgrid.
@@ -280,7 +281,7 @@ class IterativeClosestPoint():
         self,
         pt_cloud: NDArray[np.float32],
         meshgrid: Meshgrid
-    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    ) -> Tuple[NDArray[np.float32], ...]:
         """
         Implementation of a simple iterative Octree search to find the
         closest point using a loop over all data points and elements of 
@@ -321,7 +322,7 @@ class IterativeClosestPoint():
         closest_pt: NDArray[np.float32],
         min_dist: float,
         closest_tri: NDArray[Any]
-    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    ) -> Tuple[NDArray[np.float32], ...]:
         """
         Helper function that recursively searches an Octree to
         find the closest point and distance to the meshgrid, which
@@ -374,7 +375,7 @@ class IterativeClosestPoint():
         closest_pt: NDArray[np.float32] = None,
         min_dist: NDArray[np.float32] = None, 
         closest_tri: NDArray[Any] = None
-    ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
+    ) -> Tuple[NDArray[np.float32], ...]:
         """
         Implementation of a vectorized Octree search to find the
         closest point with a single loop over the elements of 

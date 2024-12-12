@@ -47,104 +47,6 @@ class DeformableICP(IterativeClosestPoint):
         # Input meshgrid should be a Meshgrid object
         if not isinstance(meshgrid, Meshgrid):
             raise Exception(f'Expected input meshgrid should be of type Meshgrid but got \'{meshgrid.__class__.__name__}\'!')
-
-        # List storing point cloud and meshgrid closest point
-        # matching error
-        match_score = [np.inf]
-
-        # Stores the maximum closest distance threshold for point cloud
-        # and meshgrid closest point to be considered a candidate
-        dist_thresh = np.inf
-
-        # Stores the current and best transformation from
-        # the point cloud to meshgrid
-        F: NDArray = np.eye(4)
-        F_best: NDArray = np.eye(4)
-        early_stop_count = 0    # Number of times failed termination condition
-
-        # Initialize rigid registration helper class
-        rigid_register = PointCloudRegistration(max_epochs=10, verbose=False)
-        pt_cloud_i = pt_cloud[:,:3].copy()
-        pt_cloud = self._homogenize(pt_cloud)
-
-        for _ in (pbar := tqdm(range(self.max_iter), bar_format="{n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
-            # Find closest points and distances
-            closest_pt, dist = self.match(pt_cloud_i, meshgrid)
-
-            # Find candidates where distance to closest point is
-            # less than the maximum threshold
-            candidates = np.where(dist < dist_thresh)[0]
-
-            # Stop the algorithm if there are no candidates to consider
-            if candidates.size == 0:
-                break
-
-            # Find the best rigid registration transformation and
-            # update thre overall transformation
-            F_i = rigid_register.register(
-                pt_cloud_i[candidates][None,], closest_pt[candidates][None,]
-            )[0]
-
-            # Update point cloud with transformation
-            pt_cloud_i = self._homogenize(pt_cloud_i)
-            pt_cloud_i = (F_i @ pt_cloud_i.T)[:3].T
-            F = F @ F_i
-
-            # compute sigma = residual error between A and B
-            # compute epsilon max = maximum residual error between A and B             
-            # compute epsilon = residual error between A and B; append to match score
-            sigma, epsilon_max, epsilon = self._residual_error(pt_cloud_i, closest_pt)
-            match_score.append(epsilon)
-
-            # Update distance threshold to three-times the similarity
-            # score between the point cloud and closest meshgrid points
-            dist_thresh = 3 * match_score[-1]
-            
-            # Compute the ratio reflecting the change in point cloud
-            # to meshgrid matching score from the previous iteration
-            match_ratio = match_score[-1] / match_score[-2]
-            
-            # Display match ratio on progress bar
-            pbar.set_postfix(match=match_score[-1], prev_match_ratio=match_ratio)
-            pbar.update(0)
-
-            # Check if the match ratio fails the termination condition
-            if match_ratio >= self.gamma:
-                early_stop_count += 1   # Increment counter
-            else:
-                F_best = F.copy()   # New best transformation found
-                early_stop_count = 0    # Reset counter
-
-            # Stop algorithm if failed termination condition
-            # too many times
-            if early_stop_count >= self.early_stopping:
-                break
-
-        # Compute best point cloud and closest distance to mesh
-        best_pt_cloud = (F_best @ pt_cloud.T).T[:,:3]
-        closest_pt, dist, closest_tri = self.match(best_pt_cloud[:,:3], meshgrid)
-
-        return best_pt_cloud, closest_pt, dist, F_best
-    
-
-    def __call__(
-        self,
-        pt_cloud: NDArray[np.float32],
-        meshgrid: Meshgrid,
-        modes: NDArray[np.float32]
-    ):
-        """
-        Runs the full deformable ICP algorithm given a point cloud,
-        meshgrid, and modes.
-        """
-
-        # Point cloud should be an Nx3 matrix of (x, y, z) coordinates
-        if len(pt_cloud.shape) != 2 or pt_cloud.shape[1] != 3:
-            raise ValueError('Point cloud should be an Nx3 matrix containing 3D coordinates!')
-
-        # Input meshgrid should be a Meshgrid object
-        if not isinstance(meshgrid, Meshgrid):
-            raise Exception(f'Expected input meshgrid should be of type Meshgrid but got \'{meshgrid.__class__.__name__}\'!')
         
         # The matrix of modes should be a MxVx3 matrix
         if len(modes.shape) != 3 or modes.shape[2] != 3:
@@ -224,6 +126,9 @@ class DeformableICP(IterativeClosestPoint):
             pt_cloud_i = (F_i @ pt_cloud_i.T)[:3].T
             F = F @ F_i
 
+            # Apply deformation on the triangle mesh vertices
+            self._deform_mesh(meshgrid, modes, λ)
+
             # compute sigma = residual error between A and B
             # compute epsilon max = maximum residual error between A and B             
             # compute epsilon = residual error between A and B; append to match score
@@ -255,6 +160,44 @@ class DeformableICP(IterativeClosestPoint):
                 break
 
         print('Done.')
+
+    def match(
+        self,
+        pt_cloud: NDArray[np.float32],
+        meshgrid: Meshgrid
+    ) -> Tuple[NDArray[np.float32], ...]:
+        """
+        Finds the closest point and distance from points on a point cloud 
+        to a triangle meshgrid.
+        """
+
+        # Point cloud should be an Nx3 matrix of (x, y, z) coordinates
+        if len(pt_cloud.shape) != 2 or pt_cloud.shape[1] != 3:
+            raise ValueError('Point cloud should be an Nx3 matrix containing 3D coordinates!')
+
+        # Input meshgrid should be a Meshgrid object
+        if not isinstance(meshgrid, Meshgrid):
+            raise Exception(f'Expected input meshgrid should be of type Meshgrid but got \'{meshgrid.__class__.__name__}\'!')
+
+        ####
+        ## Search algorithms to find closest points
+        ####
+
+        # Performs a simple linear search for closest points
+        if self.match_mode == Matching.SIMPLE_LINEAR:
+            return self._simple_linear_match(pt_cloud, meshgrid)
+        
+        # Performs a faster vectorized linear search for closest points
+        elif self.match_mode == Matching.VECTORIZED_LINEAR:
+            return self._vectorized_linear_match(pt_cloud, meshgrid)
+        
+        # Performs a simple iterative search for closest points using Octrees
+        elif self.match_mode == Matching.SIMPLE_OCTREE:
+            return self._simple_octree_match(pt_cloud, meshgrid)
+        
+        # Performs a simple iterative search for closest points using Octrees
+        elif self.match_mode == Matching.VECTORIZED_OCTREE:
+            return self._vectorized_octree_match(pt_cloud, meshgrid)
 
 
     def test(
@@ -412,45 +355,49 @@ class DeformableICP(IterativeClosestPoint):
         
         # Return alpha, epsilon, and lambdas
         return x[:3], x[3:6], x[6:]
-
-    def match(
+    
+    def _deform_mesh(
         self,
-        pt_cloud: NDArray[np.float32],
-        meshgrid: Meshgrid
-    ):
-        """
-        Finds the closest point and distance from points on a point cloud 
-        to a triangle meshgrid.
-        """
-
-        # Point cloud should be an Nx3 matrix of (x, y, z) coordinates
-        if len(pt_cloud.shape) != 2 or pt_cloud.shape[1] != 3:
-            raise ValueError('Point cloud should be an Nx3 matrix containing 3D coordinates!')
-
-        # Input meshgrid should be a Meshgrid object
-        if not isinstance(meshgrid, Meshgrid):
-            raise Exception(f'Expected input meshgrid should be of type Meshgrid but got \'{meshgrid.__class__.__name__}\'!')
-
-        ####
-        ## Search algorithms to find closest points
-        ####
-
-        # Performs a simple linear search for closest points
-        if self.match_mode == Matching.SIMPLE_LINEAR:
-            return self._simple_linear_match(pt_cloud, meshgrid)
+        meshgrid: Meshgrid,
+        modes: NDArray[np.float32],
+        λ: NDArray[np.float32]
+    ) -> None:
         
-        # Performs a faster vectorized linear search for closest points
-        elif self.match_mode == Matching.VECTORIZED_LINEAR:
-            return self._vectorized_linear_match(pt_cloud, meshgrid)
+        # Check that the matrix of modes is a MxVx3 matrix
+        if len(modes.shape) != 3 or modes.shape[2] != 3:
+            raise ValueError('Matrix of modes should be an MxVx3 matrix!')
         
-        # Performs a simple iterative search for closest points using Octrees
-        elif self.match_mode == Matching.SIMPLE_OCTREE:
-            return self._simple_octree_match(pt_cloud, meshgrid)
+        # Check that λ is a M-dimensional vector
+        if len(λ.shape) != 1:
+            raise ValueError('Your λ should be an M-dimension vector!')
         
-        # Performs a simple iterative search for closest points using Octrees
-        elif self.match_mode == Matching.VECTORIZED_OCTREE:
-            return self._vectorized_octree_match(pt_cloud, meshgrid)
+        # Check that the number of modes match the number of λ values
+        if λ.shape[0] != modes.shape[0]:
+            raise ValueError(f'Expected vector of λ to be {modes.shape[0]} '\
+                             f'to match the modes matrix, but got {λ.shape[0]}!')
+        
+        # Check that λ of mode 0 (the mean) is 1
+        if λ[0] != 1:
+            warnings.warn('Your λ of the 0th mode (mean) should be 1. '\
+                          'Automatically setting λ[0] to 1.')
+            λ[0] = 1.0
+        
+        for i in range(len(meshgrid.triangles)):
+            triangle: Triangle = meshgrid.triangles[i]
 
+            # Extract triangle vertex indices
+            s = triangle.idx1
+            t = triangle.idx2
+            u = triangle.idx3
+
+            # Compute mode coordinates of the deformed mesh
+            mode_coords = modes[:,[s,t,u]] * λ.reshape(-1, 1, 1)
+            mode_coords = np.sum(mode_coords, axis=0)
+
+            # Update the triangle with the deformed vertices
+            meshgrid.triangles[i].v1 = mode_coords[0]
+            meshgrid.triangles[i].v2 = mode_coords[1]
+            meshgrid.triangles[i].v3 = mode_coords[2]
     
     def _residual_error(
         self, 
