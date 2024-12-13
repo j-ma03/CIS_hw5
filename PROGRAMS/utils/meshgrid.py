@@ -77,7 +77,7 @@ class BoundingBox():
         # All axes overlap
         return True
 
-class Triangle():
+class Triangle(object):
     def __init__(
         self,
         v1: NDArray[np.float32],
@@ -267,7 +267,7 @@ class Triangle():
         # Print out triangle vertices as string
         return str((self.v1, self.v2, self.v3))
         
-class Meshgrid():
+class Meshgrid(object):
     def __init__(
         self,
         vertices: NDArray[np.float32],
@@ -304,6 +304,16 @@ class Meshgrid():
             self.triangles.append(
                 Triangle(v1, v2, v3, idx1, idx2, idx3)
             )
+
+    def copy(self) -> 'Meshgrid':
+        """
+        Performs a copy of a Meshgrid object
+        """
+
+        mesh = Meshgrid(self.vertices.copy(), self.triangle_indices.copy())
+        mesh.triangles = self.triangles.copy()
+
+        return mesh
 
     def __iter__(self) -> Iterator[Triangle]:
         """

@@ -22,7 +22,7 @@ class IterativeClosestPoint():
         self,
         max_iter: int = 200,
         match_mode: Matching = Matching.VECTORIZED_LINEAR,
-        gamma: float = 0.95,
+        gamma: float = 0.96,
         early_stopping: int = 10
     ) -> None:
         # Define maximum number of ICP iterations
@@ -74,8 +74,8 @@ class IterativeClosestPoint():
         pt_cloud_i = pt_cloud[:,:3].copy()
         pt_cloud = self._homogenize(pt_cloud)
 
-        for _ in (pbar := tqdm(range(self.max_iter), bar_format="{n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
-            
+        for _ in (pbar := tqdm(range(self.max_iter), bar_format="Rigid ICP: {n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
+
             # Find closest points and distances
             closest_pt, dist, _ = self.match(pt_cloud_i, meshgrid)
 
