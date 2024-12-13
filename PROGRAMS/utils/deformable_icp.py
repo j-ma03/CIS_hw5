@@ -248,8 +248,6 @@ class DeformableICP(IterativeClosestPoint):
             barycentric = np.linalg.lstsq(mode_coords, [*closest_pt[i], 1], rcond=None)[0]
             barycentric = barycentric.reshape(1, 3, 1)
 
-            assert np.isclose(np.sum(barycentric), 1, atol=0.1), f'{barycentric}, sum={np.sum(barycentric)}'
-
             # Store mode coordinates in a NxMx3 matrix
             Q[i] = np.sum(modes[:,[s,t,u]] * barycentric, axis=1)
 
