@@ -13,7 +13,7 @@ Code created by Edmund Sumpena and Jayden Ma
 class DeformableICP(IterativeClosestPoint):
     def __init__(
         self,
-        max_iter: int = 200,
+        max_iter: int = 20,
         match_mode: Matching = Matching.VECTORIZED_LINEAR,
         gamma: float = 0.96,
         early_stopping: int = 10
@@ -81,7 +81,8 @@ class DeformableICP(IterativeClosestPoint):
             ## Step 3: Compute error and check for terminatation condition
             ####
 
-            _, _, epsilon = self._residual_error(pt_cloud, closest_pt)
+            closest_pt = self.match(best_pt_cloud, meshgrid)[0]
+            _, _, epsilon = self._residual_error(best_pt_cloud, closest_pt)
             match_score.append(epsilon)
 
             # Compute the ratio reflecting the change in point cloud
@@ -124,7 +125,7 @@ class DeformableICP(IterativeClosestPoint):
 
         for _ in (pbar := tqdm(range(self.max_iter), bar_format="Deforming Mesh: {n_fmt}it [{elapsed}<{remaining}, {rate_fmt}{postfix}]")):
             # Find closest points and distances
-            closest_pt, dist, closest_tri = super().match(pt_cloud, meshgrid)
+            closest_pt, dist, closest_tri = self.match(pt_cloud, meshgrid)
 
             # Find candidates where distance to closest point is
             # less than the maximum threshold
