@@ -220,6 +220,90 @@ class Dataloader():
 
         return np.array(raw_data)
     
+class OutputDataloader():
+    """
+    OutputDataloader class that performs some basic functionalities:
+        -  Read the output data files as a .csv
+        -  Store basic file properties given on the first line of the data files
+        -  Retrieve the individual coordinate points as an array of tuples
+    """
+    def __init__(
+        self,
+        metadata: List[Any],
+        weights: NDArray[np.float32],
+        raw_data: NDArray[np.float32],
+        N_A: int = 0,
+        N_B: int = 0
+    ) -> None:
+        
+        # Remove any leading or trailing spaces
+        # for i in range(len(metadata)):
+        #     metadata[i] = metadata[i].strip()
+
+        # Stores metadata of the data file
+        self.metadata: List[Any] = metadata
+
+        self.weights: NDArray[np.float32] = weights
+
+        # Store tuples of (x, y, z) coordinates read from the file
+        self.raw_data: NDArray[np.float32] = raw_data
+
+        # Store N_A and N_B parameters
+        self.N_A: int = N_A
+        self.N_B: int = N_B
+
+    # Construct a Dataloader class given a data file
+    @staticmethod
+    def read_file(filename: str, delimiter: str = '', N_A: int = 0, N_B: int = 0) -> 'OutputDataloader':
+        # Read the file line by line
+        with open(filename, 'r') as file:
+            lines = file.readlines()
+
+        # Extract metadata from the first line
+        if delimiter:
+            metadata = lines[0].strip().split(delimiter)
+        else:
+            metadata = lines[0].strip().split()
+
+        # Extract weights from the second line
+        weights = []
+        if delimiter:
+            weights = list(map(float, lines[1].strip().split(delimiter)))
+        else:
+            weights = list(map(float, lines[1].strip().split()))
+        weights = np.array(weights, dtype=np.float32)
+
+        # Extract raw data from the remaining lines
+        raw_data = []
+        for line in lines[2:]:
+            # Split the line by spaces and convert to floats
+            if delimiter:
+                coordinates = list(map(float, line.strip().split(delimiter)))
+            else:
+                coordinates = list(map(float, line.strip().split()))
+            raw_data.append(coordinates)
+
+        # Convert raw_data to a numpy array
+        raw_data = np.array(raw_data, dtype=np.float32)
+
+        return OutputDataloader(metadata, weights, raw_data, N_A, N_B)
+
+    # Reads the data file's metadata from dataframe
+    @staticmethod
+    def _read_metadata(df: pd.DataFrame) -> List[Any]:
+        return list(df.columns.values)
+
+    # Reads (x, y, z) coordinates from each row
+    @staticmethod
+    def _read_raw_data(df: pd.DataFrame) -> NDArray[np.float32]:
+        raw_data = []
+
+        # Extract all the coordinates from dataframe
+        for _, row in df.iterrows():
+            raw_data.append(row.values.flatten().tolist()[0:3])
+
+        return np.array(raw_data)
+    
 class RigidBodyDataloader(Dataloader):
     """
     Rigid body dataloader class that, in addition to the functionality of

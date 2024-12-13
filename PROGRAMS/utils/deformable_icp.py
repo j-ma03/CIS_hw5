@@ -53,7 +53,8 @@ class DeformableICP(IterativeClosestPoint):
         F_best = np.eye(4)
         
         # Initialize λ vector as a zero vector (just look at mean initially)
-        λ_best = np.zeros(modes.shape[0])
+        # λ_best = np.zeros(modes.shape[0])
+        λ_best = np.random.randn(modes.shape[0])
         λ_best[0] = 1.0
         
         for i in range(self.max_iter):
