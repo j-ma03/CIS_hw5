@@ -147,7 +147,7 @@ class DeformableICP(IterativeClosestPoint):
             assert λ[0] == 1, f'Expected λ for the 0th mode to be 1, but got {λ[0]}!'
 
             # Apply deformation on the triangle mesh vertices
-            meshgrid = self._deform_mesh(meshgrid, modes, λ)
+            meshgrid = self._apply_deformation(meshgrid, modes, λ)
 
             # compute sigma = residual error between A and B
             # compute epsilon max = maximum residual error between A and B             
@@ -297,7 +297,7 @@ class DeformableICP(IterativeClosestPoint):
         # Return lambda vector (mode weights)
         return x
     
-    def _deform_mesh(
+    def _apply_deformation(
         self,
         meshgrid: Meshgrid,
         modes: NDArray[np.float32],
