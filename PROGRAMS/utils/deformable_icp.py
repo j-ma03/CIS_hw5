@@ -195,6 +195,9 @@ class DeformableICP(IterativeClosestPoint):
         of modes as a MxVx3, and array of weights (λ) as a 
         N-dimensional vector. Compute barycentric coordinates on 
         the triangle in terms of mode coordinates.
+
+        Methodology based on Dr. Taylor's notes in PA5:
+        https://ciis.lcsr.jhu.edu/lib/exe/fetch.php?media=courses:455-655:2024:programming_5_600-445-2024.pdf
         """
 
         # Check that matrix of closest points is Nx3
@@ -263,7 +266,11 @@ class DeformableICP(IterativeClosestPoint):
     ) -> Tuple[NDArray[np.float32], NDArray[np.float32]]:
         """
         Computes the rigid body transformation for a point cloud
-        and the mode weights λ given a meshgrid and modes.
+        and the mode weights λ given a meshgrid and modes by solving
+        using the least-squares method.
+
+        Methodology based on Dr. Taylor's notes in PA5:
+        https://ciis.lcsr.jhu.edu/lib/exe/fetch.php?media=courses:455-655:2024:programming_5_600-445-2024.pdf
         """
         # Point cloud should be an Nx3 matrix of (x, y, z) coordinates
         if len(pt_cloud.shape) != 2 or pt_cloud.shape[1] != 3:
@@ -296,6 +303,15 @@ class DeformableICP(IterativeClosestPoint):
         modes: NDArray[np.float32],
         λ: NDArray[np.float32]
     ) -> None:
+        """
+        Given a set of modes and λ, apply the deformation onto 
+        the vertices of the a triangle meshgrid. Deformed points 
+        are computed by taking a linear combination of modes 
+        multiplied by their corresponding mode weights λ.
+
+        Methodology based on Dr. Taylor's notes in PA5:
+        https://ciis.lcsr.jhu.edu/lib/exe/fetch.php?media=courses:455-655:2024:programming_5_600-445-2024.pdf
+        """
         
         # Check that the matrix of modes is a MxVx3 matrix
         if len(modes.shape) != 3 or modes.shape[2] != 3:
