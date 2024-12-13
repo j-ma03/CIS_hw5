@@ -305,7 +305,7 @@ class IterativeClosestPoint():
 
         # Check if tree is empty
         if tree.num_elements == 0:
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
         
         # Search Octree for every point
         for i, pt in enumerate(pt_cloud):
@@ -313,7 +313,7 @@ class IterativeClosestPoint():
                 pt, tree, closest_pt[i], min_dist[i], closest_tri[i]
             )
 
-        return closest_pt, min_dist
+        return closest_pt, min_dist, closest_tri
     
     def _simple_search_octree(
         self,
@@ -335,7 +335,7 @@ class IterativeClosestPoint():
         
         # Check if tree is empty
         if tree.num_elements == 0:
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
         
         # Get the bounding box of the tree
         box = tree.box()
@@ -419,7 +419,7 @@ class IterativeClosestPoint():
         
         # Stop if there are no candidates to consider
         if not candidates.any():
-            return closest_pt, min_dist
+            return closest_pt, min_dist, closest_tri
 
         closest_pt = closest_pt.copy()
         min_dist = min_dist.copy()
