@@ -6,8 +6,10 @@ from utils.dataloader import *
 from utils.meshgrid import BoundingBox, Triangle, Meshgrid
 from utils.deformable_icp import DeformableICP
 import numpy as np
+from tqdm import tqdm
 
-EPS = 0
+N = 50  # Define N as the number of point cloud samples
+EPS = 1e-3  # Error tolerance for passing test cases
 DATA_DIR = './pa345_data'
 OUTPUT_DIR = '../OUTPUT'
 
@@ -198,24 +200,58 @@ class TestModeWeights(unittest.TestCase):
         modes_dl = AtlasModesDataloader.read_file(f'{DATA_DIR}/Problem5Modes.txt')
         deform_icp = DeformableICP()
 
-
         # generate random values for the mode weights; ground truth
-        mode_weights = np.random.rand(6)
+        mode_weights = np.random.randn(7) * np.sqrt(N)
+        mode_weights[0] = 1.0
 
-        # use mode weights to deform the meshgrid
-        deform_icp._apply_deformation(meshgrid, modes_dl.modes, mode_weights)
+        # use mode weights to obtain the ground-truth deformed meshgrid
+        deformed: Meshgrid = deform_icp._apply_deformation(meshgrid.copy(), modes_dl.modes, mode_weights)
 
-        # TODO sample points from the deformed meshgrid
-        pt_cloud = None
+        # Sample points from the deformed meshgrid
+        indices = np.random.randint(0, len(deformed.triangles), size=N)
+        rand_triangles = np.array(deformed.triangles)[indices]
 
-        # get predicted mode weights
-        closest_pt, dist, closest_tri = deform_icp.match(pt_cloud, meshgrid)
-        pred_mode_weights = np.zeros(6)
-        mode_coords = deform_icp._compute_mode_coordinates(closest_pt, closest_tri, modes_dl.modes, pred_mode_weights)
-        pred_mode_weights = deform_icp._get_deformable_transf(pt_cloud, modes_dl.modes, mode_coords)
+        pt_cloud = np.zeros((N, 3)) # Create a point cloud of N points
+
+        for i, triangle in enumerate(rand_triangles):
+            # Combine all the triangle vertices into an array
+            vertices = np.array([triangle.v1, triangle.v2, triangle.v3])
+
+            # Compute barycentric coordinates for the triangle
+            b_coords = np.random.rand(3)
+            b_coords[1] *= (1. - b_coords[0])
+            b_coords[2] = (1. - b_coords[0] - b_coords[1])
+
+            # Compute coordinates of the random point
+            pt_cloud[i] = np.sum(vertices * b_coords.reshape(-1, 1), axis=0)
+
+        # Initialize mode weights as empty
+        pred_mode_weights = np.zeros(7)
+        pred_mode_weights[0] = 1.0  # Mode weight (lambda) of 0 must be 1
+
+        # Iterate mode weight (lambda) re-estimation until convergence
+        for _ in tqdm(range(3 * N), desc='Solving for λ'):
+            # Find closest points
+            closest_pt, _, closest_tri = deform_icp.match(pt_cloud, meshgrid)
+
+            # Compute mode coordinates and re-estimate lambda for modes 1 - M
+            mode_coords = deform_icp._compute_mode_coordinates(closest_pt, closest_tri, modes_dl.modes, pred_mode_weights)
+            pred_mode_weights[1:] = deform_icp._get_deformable_transf(pt_cloud, modes_dl.modes, mode_coords)
+
+            # Apply deformation to the meshgrid
+            meshgrid = deform_icp._apply_deformation(meshgrid, modes_dl.modes, pred_mode_weights)
+
+            # Terminate the algorithm has converged to the ground-truth solution
+            if np.all(np.isclose(mode_weights, pred_mode_weights, rtol=EPS)):
+                print('Solution reached. Terminating.')
+                break
+
+        # Print out the error between ground-truth and predicted λ
+        print('\nGround-truth vs. Predicted λ MAE = ' \
+              f'{np.abs(mode_weights - pred_mode_weights).mean():.3}')
 
         # assert that the predicted mode weights are the same as the ground truth mode weights
-        self.assertTrue(np.all(np.isclose(mode_weights, pred_mode_weights)))
+        self.assertTrue(np.all(np.isclose(mode_weights, pred_mode_weights, rtol=EPS)))
         pass
 
 class FileOutputMatcher():
