@@ -50,14 +50,16 @@ class TestClosestPoint(unittest.TestCase):
 
         # compare the points
         error_closest_point = np.abs(closest_point - p)
-        print(error_closest_point)
-        self.assertTrue(np.isclose(error_closest_point[0], EPS))
-        self.assertTrue(np.isclose(error_closest_point[1], EPS))
-        self.assertTrue(np.isclose(error_closest_point[2], EPS))
+        print('\nGround-truth vs. Predicted Closest Point MAE = ' \
+              f'{error_closest_point.mean():.3}')
+        
+        self.assertTrue(np.isclose(error_closest_point[0], 0, rtol=EPS))
+        self.assertTrue(np.isclose(error_closest_point[1], 0, rtol=EPS))
+        self.assertTrue(np.isclose(error_closest_point[2], 0, rtol=EPS))
 
         # compare the distances
         error_closest_dist = np.abs(closest_dist[0] - distance)
-        self.assertTrue(np.isclose(error_closest_dist, EPS))
+        self.assertTrue(np.isclose(error_closest_dist, 0, rtol=EPS))
 
         pass
 
@@ -120,14 +122,16 @@ class TestClosestPoint(unittest.TestCase):
 
         # compare the points
         error_closest_point = np.abs(closest_point - p)
-        print(error_closest_point)
-        self.assertTrue(np.isclose(error_closest_point[0], EPS))
-        self.assertTrue(np.isclose(error_closest_point[1], EPS))
-        self.assertTrue(np.isclose(error_closest_point[2], EPS))
+        print('\nGround-truth vs. Predicted Closest Point MAE = ' \
+              f'{error_closest_point.mean():.3}')
+        
+        self.assertTrue(np.isclose(error_closest_point[0], 0, rtol=EPS))
+        self.assertTrue(np.isclose(error_closest_point[1], 0, rtol=EPS))
+        self.assertTrue(np.isclose(error_closest_point[2], 0, rtol=EPS))
 
         # compare the distances
         error_closest_dist = np.abs(closest_dist[0] - distance)
-        self.assertTrue(np.isclose(error_closest_dist, EPS))
+        self.assertTrue(np.isclose(error_closest_dist, 0, rtol=EPS))
 
         pass
         
