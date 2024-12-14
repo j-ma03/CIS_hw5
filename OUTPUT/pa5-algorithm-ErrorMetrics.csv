@@ -1,0 +1,4 @@
+Sample,Error_weights,Error_s_k,Error_c_k,Error_norm
+../OUTPUT/pa5-F-Output-simple-octree.txt,0.0307,1e-04,0.0002,0.0002
+../OUTPUT/pa5-F-Output-vectorized-linear.txt,0.0018,0.0,0.0,0.0
+../OUTPUT/pa5-F-Output-vectorized-octree.txt,0.0317,1e-04,0.0,1e-04

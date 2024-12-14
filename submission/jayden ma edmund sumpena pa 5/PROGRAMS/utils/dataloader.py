@@ -52,6 +52,10 @@ class AtlasModesDataloader():
             modes.append(np.array(mode_data, dtype=np.float32))
         modes = np.array(modes, dtype=np.float32)
 
+        # Print the first and last element of modes
+        print("First element of modes:", modes[0])
+        print("Last element of modes:", modes[-1])
+
         return AtlasModesDataloader(N_modes, N_vertices, modes)
 
     # Reads the data file's metadata from dataframe
