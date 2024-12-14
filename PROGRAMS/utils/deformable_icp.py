@@ -14,7 +14,7 @@ class DeformableICP(IterativeClosestPoint):
     def __init__(
         self,
         max_iter: int = 20,
-        match_mode: Matching = Matching.SIMPLE_OCTREE,
+        match_mode: Matching = Matching.SIMPLE_LINEAR,
         gamma: float = 0.96,
         early_stopping: int = 10
     ) -> None:

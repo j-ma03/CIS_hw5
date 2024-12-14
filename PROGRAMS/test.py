@@ -3,7 +3,8 @@ import unittest
 
 from utils.dataloader import *
 # from utils.icp import *
-from utils.meshgrid import BoundingBox, Triangle
+from utils.meshgrid import BoundingBox, Triangle, Meshgrid
+from utils.deformable_icp import DeformableICP
 import numpy as np
 
 EPS = 0
@@ -183,6 +184,28 @@ class TestOutputAccuracy(unittest.TestCase):
             # assert that the mean absolute error of ||d_k-c_k|| is within a certain threshold
             self.assertTrue(np.less_equal(error_norm, 0.1))
 
+class TestModeWeights(unittest.TestCase):
+    def test_mode_weights(self):
+        """
+        tests that _get_deformable_transf returns the correct mode weights
+        """
+        DATA_DIR = './pa345_data'
+        SURFACE_DATA = f'{DATA_DIR}/Problem5MeshFile.sur'
+
+        # initialize meshgrid, modes, and deformable icp
+        surface_dl = Surfaceloader.read_file(SURFACE_DATA)
+        meshgrid = Meshgrid(surface_dl.vertices, surface_dl.triangles)
+        modes_dl = AtlasModesDataloader.read_file(f'{DATA_DIR}/Problem5Modes.txt')
+        deform_icp = DeformableICP()
+
+        # generate random values for the mode weights
+        mode_weights = np.random.rand(6)
+
+        # use mode weights to deform the meshgrid
+        deformed_meshgrid, λ_best = deform_icp.deform_mesh()
+
+
+        pass
 
 class FileOutputMatcher():
     """
