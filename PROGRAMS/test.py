@@ -198,13 +198,24 @@ class TestModeWeights(unittest.TestCase):
         modes_dl = AtlasModesDataloader.read_file(f'{DATA_DIR}/Problem5Modes.txt')
         deform_icp = DeformableICP()
 
-        # generate random values for the mode weights
+
+        # generate random values for the mode weights; ground truth
         mode_weights = np.random.rand(6)
 
         # use mode weights to deform the meshgrid
-        deformed_meshgrid, λ_best = deform_icp.deform_mesh()
+        deform_icp._apply_deformation(meshgrid, modes_dl.modes, mode_weights)
 
+        # TODO sample points from the deformed meshgrid
+        pt_cloud = None
 
+        # get predicted mode weights
+        closest_pt, dist, closest_tri = deform_icp.match(pt_cloud, meshgrid)
+        pred_mode_weights = np.zeros(6)
+        mode_coords = deform_icp._compute_mode_coordinates(closest_pt, closest_tri, modes_dl.modes, pred_mode_weights)
+        pred_mode_weights = deform_icp._get_deformable_transf(pt_cloud, modes_dl.modes, mode_coords)
+
+        # assert that the predicted mode weights are the same as the ground truth mode weights
+        self.assertTrue(np.all(np.isclose(mode_weights, pred_mode_weights)))
         pass
 
 class FileOutputMatcher():
