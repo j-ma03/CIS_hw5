@@ -13,6 +13,10 @@ This project contains the following files:
     - ./utils/icp.py: Utility class that implements the Iterative Closest Point
         (ICP) algorithm for aligning a point cloud to a surface mesh.
 
+    - ./utils/deformable_icp.py: Utility class that implements the Deformable 
+        Iterative Closest Point (ICP) algorithm for aligning a point cloud 
+        to a surface mesh using a statistical shape model of several modes.
+
     - ./utils/meshgrid.py: Utility class that stores a meshgrid as a set of vertices and Triangles.
 
     - ./utils/octree.py: Utility class that implements an octree data structure.
